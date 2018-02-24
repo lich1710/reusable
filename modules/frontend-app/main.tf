@@ -9,19 +9,22 @@ provider "aws" {
 ################################################
 
 resource "aws_instance" "web_instance" {
+  count = 3
+
   ami = "ami-b7f388cb"
   instance_type = "t2.micro"
   associate_public_ip_address = true
+  key_name = "newKey"
 
   # Assign subnet and security group for the instance
-  subnet_id = "${data.terraform_remote_state.vpc.public_subnet_ids[0]}"
+  subnet_id = "${data.terraform_remote_state.vpc.public_subnet_ids[count.index]}"
   vpc_security_group_ids = ["${aws_security_group.http_rules.id}"]
 
-  user_data = <<-EOF
-              #!/bin/bash
-              echo "Hello , World" > index.html
-              nohup busybox httpd -f -p "${var.server_port}" &
-              EOF
+  user_data = "${data.template_file.user_data.rendered}"
+
+  tags {
+    Name = "example - ${count.index}"
+  }
 }
 
 ################################################
