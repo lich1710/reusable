@@ -1,4 +1,6 @@
-
+provider "aws" {
+  region = "ap-southeast-1"
+}
 
 #===========================================================
 #Create AWS Launch Configuration for new AWS AutoScaling Group
@@ -10,11 +12,6 @@ resource "aws_launch_configuration" "cluster" {
   security_groups = ["${aws_security_group.instance.id}"]
 
   user_data = "${data.template_file.user_data.rendered}"
-
-  tags {
-    key = "Name"
-    value = "${var.cluster_name}-launch-config"
-  }
 
   #Tell terraform to always create new instance before destroy
   lifecycle {
@@ -29,7 +26,7 @@ resource "aws_autoscaling_group" "cluster" {
     min_size = "${var.min_size}"
     max_size = "${var.max_size}"
 
-    load_balancers = ["${aws_elb.example.name}"]
+    load_balancers = ["${aws_elb.elb.name}"]
     health_check_type = "ELB"
 
     tag {
