@@ -19,10 +19,37 @@ resource "aws_launch_configuration" "cluster" {
   }
 }
 
+# Security Group for the ASG
+resource "aws_security_group" "instance" {
+  name = "${var.cluster_name}-webinstance"
+  # Because the Launch Configuration using this Security Group, and it has
+  # lifecycle rules, all the dependency also need lifecycle rules
+  vpc_id = "${data.terraform_remote_state.vpc.public_vpc_id[0]}"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+# Rules for above security group
+resource "aws_security_group_rule" "allow_http" {
+    type = "ingress"
+    from_port = "${var.server_port}"
+    to_port = "${var.server_port}"
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    security_group_id = "${aws_security_group.instance.id}"
+}
+
+#===========================================================
+#Create AWS AutoScaling Group
+#===========================================================
 
 resource "aws_autoscaling_group" "cluster" {
     launch_configuration = "${aws_launch_configuration.cluster.id}"
     availability_zones = ["${data.aws_availability_zones.all.names}"]
+    vpc_zone_identifier = ["${data.terraform_remote_state.vpc.public_subnet_ids}"]
+
+
     min_size = "${var.min_size}"
     max_size = "${var.max_size}"
 
@@ -36,27 +63,6 @@ resource "aws_autoscaling_group" "cluster" {
     }
 }
 
-
-# Security Group for the ASG
-resource "aws_security_group" "instance" {
-
-  name = "${var.cluster_name}-webinstance"
-
-  ingress {
-    from_port = "${var.server_port}"
-    to_port = "${var.server_port}"
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # Because the Launch Configuration using this Security Group, and it has
-  # lifecycle rules, all the dependency also need lifecycle rules
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-
 #===========================================================
 #Deploy a load balancer & its own security group
 #===========================================================
@@ -64,8 +70,8 @@ resource "aws_security_group" "instance" {
 
 resource "aws_elb" "elb" {
     name = "${var.cluster_name}-asg-elb"
-    availability_zones = ["${data.aws_availability_zones.all.names}"]
     security_groups = ["${aws_security_group.elb.id}"]
+    subnets = ["${data.terraform_remote_state.vpc.public_subnet_ids}"]
 
     listener {
       instance_port = "${var.server_port}"
@@ -83,20 +89,28 @@ resource "aws_elb" "elb" {
     }
 }
 
+#Deploy the elb security group
 resource "aws_security_group" "elb" {
     name = "${var.cluster_name}-elb"
+    vpc_id = "${data.terraform_remote_state.vpc.public_vpc_id[0]}"
+}
 
-    ingress {
-      from_port = 80
-      to_port = 80
-      protocol = "tcp"
-      cidr_blocks = ["0.0.0.0/0"]
-    }
+resource "aws_security_group_rule" "elb_rules" {
+    type = "ingress"
+    security_group_id = "${aws_security_group.elb.id}"
 
-    egress {
-      from_port = 0
-      to_port = 0
-      protocol = "-1"
-      cidr_blocks = ["0.0.0.0/0"]
-    }
+    from_port = 80
+    to_port = 80
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "health_check" {
+    type = "egress"
+    security_group_id = "${aws_security_group.elb.id}"
+
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
 }
