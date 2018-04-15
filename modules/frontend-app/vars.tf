@@ -7,7 +7,7 @@ variable "vpc_state_file_location" {
 data "terraform_remote_state" "vpc" {
   backend = "s3"
   config {
-    bucket = "lich1710-terraform-state"
+    bucket = "unique-s3-bucket"
     region = "ap-southeast-1"
     encrypt = true
     key = "${var.vpc_state_file_location}"
