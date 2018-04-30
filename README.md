@@ -1,5 +1,7 @@
-# THIS IS AN EXAMPLE OF USING TERRAFORM TO DEPLOY INFRASTRUCTURE ON AWS
+## THIS IS AN EXAMPLE OF USING TERRAFORM TO DEPLOY INFRASTRUCTURE ON AWS
 
+In this simple project, we will be using terraform to deploy a cluster of 3 webservers or an auto scaling group.
+We created the front-end and web-cluster modules and use it to deploy.
 
 ## I. DIRECTORY STRUCTURE
 
